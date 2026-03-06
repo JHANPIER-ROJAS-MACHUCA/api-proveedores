@@ -1,23 +1,34 @@
 <?php
-// =============================================
-// proveedores.php - API REST CRUD Proveedores
-// =============================================
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-require_once 'config.php';
+// Manejar preflight CORS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
 
-$method = $_SERVER['REQUEST_METHOD'];
+require_once 'config.php';
 $conn = getConnection();
+$method = $_SERVER['REQUEST_METHOD'];
+$inputData = json_decode(file_get_contents('php://input'), true);
 
 switch ($method) {
 
-    // LISTAR
     case 'GET':
-        $sql = "SELECT * FROM proveedor ORDER BY id_proveedor ASC";
+        if (isset($_GET['id'])) {
+            $id  = intval($_GET['id']);
+            $sql = "SELECT * FROM proveedor WHERE id_proveedor = $id";
+        } else {
+            $sql = "SELECT * FROM proveedor ORDER BY id_proveedor ASC";
+        }
         $result = $conn->query($sql);
+        if (!$result) {
+            echo json_encode(['success' => false, 'message' => $conn->error]);
+            break;
+        }
         $proveedores = [];
         while ($row = $result->fetch_assoc()) {
             $proveedores[] = $row;
@@ -25,12 +36,15 @@ switch ($method) {
         echo json_encode(['success' => true, 'data' => $proveedores]);
         break;
 
-    // CREAR 
     case 'POST':
-        $data = json_decode(file_get_contents('php://input'), true);
-        $razonsocial = $conn->real_escape_string($data['razonsocial']);
-        $direccion   = $conn->real_escape_string($data['direccion']);
-        $telefono    = $conn->real_escape_string($data['telefono']);
+        $razonsocial = $conn->real_escape_string($inputData['razonsocial'] ?? '');
+        $direccion   = $conn->real_escape_string($inputData['direccion']   ?? '');
+        $telefono    = $conn->real_escape_string($inputData['telefono']    ?? '');
+
+        if (empty($razonsocial)) {
+            echo json_encode(['success' => false, 'message' => 'La razón social es obligatoria']);
+            break;
+        }
 
         $sql = "INSERT INTO proveedor (razonsocial, direccion, telefono) VALUES ('$razonsocial', '$direccion', '$telefono')";
         if ($conn->query($sql)) {
@@ -40,13 +54,20 @@ switch ($method) {
         }
         break;
 
-    // ACTUALIZAR
     case 'PUT':
-        $data = json_decode(file_get_contents('php://input'), true);
-        $id          = intval($data['id_proveedor']);
-        $razonsocial = $conn->real_escape_string($data['razonsocial']);
-        $direccion   = $conn->real_escape_string($data['direccion']);
-        $telefono    = $conn->real_escape_string($data['telefono']);
+        $id          = intval($inputData['id_proveedor'] ?? 0);
+        $razonsocial = $conn->real_escape_string($inputData['razonsocial'] ?? '');
+        $direccion   = $conn->real_escape_string($inputData['direccion']   ?? '');
+        $telefono    = $conn->real_escape_string($inputData['telefono']    ?? '');
+
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de proveedor inválido']);
+            break;
+        }
+        if (empty($razonsocial)) {
+            echo json_encode(['success' => false, 'message' => 'La razón social es obligatoria']);
+            break;
+        }
 
         $sql = "UPDATE proveedor SET razonsocial='$razonsocial', direccion='$direccion', telefono='$telefono' WHERE id_proveedor=$id";
         if ($conn->query($sql)) {
@@ -55,9 +76,15 @@ switch ($method) {
             echo json_encode(['success' => false, 'message' => $conn->error]);
         }
         break;
-    // ELIMINAR
+
     case 'DELETE':
-        $id = intval($_GET['id']);
+        $id = intval($inputData['id_proveedor'] ?? 0);
+
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de proveedor inválido']);
+            break;
+        }
+
         $sql = "DELETE FROM proveedor WHERE id_proveedor=$id";
         if ($conn->query($sql)) {
             echo json_encode(['success' => true, 'message' => 'Proveedor eliminado']);

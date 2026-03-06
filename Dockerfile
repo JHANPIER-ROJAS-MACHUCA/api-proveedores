@@ -1,7 +1,7 @@
 FROM php:8.2-apache
 
-# Habilitar mod_rewrite
-RUN a2enmod rewrite
+# Deshabilitar MPM event y habilitar MPM prefork (evita conflicto)
+RUN a2dismod mpm_event && a2enmod mpm_prefork rewrite
 
 # Copiar archivos PHP al servidor
 COPY . /var/www/html/
